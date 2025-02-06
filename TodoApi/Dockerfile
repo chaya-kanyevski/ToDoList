@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 80
-EXPOSE 433
+EXPOSE 443
 
 ENV ASPNETCORE_URLS=http://+:80
 
