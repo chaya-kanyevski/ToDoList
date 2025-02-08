@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@api/render-api": "file:.api/apis/render-api",
     "express": "^4.21.2"
   }
 }
-
