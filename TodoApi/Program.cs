@@ -13,11 +13,15 @@ builder.Services.AddDbContext<ToDoDbContext>(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
+    options.AddPolicy("AllowAll", builder =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        builder
+            .WithOrigins(
+                "http://localhost:3000", 
+                "https://todolistclient-oo02.onrender.com"
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 
@@ -29,7 +33,7 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoList API");
     c.RoutePrefix = string.Empty;
 });
-app.UseCors();
+app.UseCors("AllowAll");
 
 app.MapGet("/", () => "TodoList API works...");
 
