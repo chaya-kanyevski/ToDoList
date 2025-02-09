@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3001;
 
 app.get('/', async (req, res) => {
   try {
-    const apiKey = process.env.RENDER_API_KEY;
+    const apiKey = process.env.REACT_APP_API_URL;
 
     const response = await axios.get('https://api.render.com/v1/services', {
       headers: {
