@@ -19,8 +19,18 @@ public partial class ToDoDbContext : DbContext
     public virtual DbSet<Item> Items { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseMySql("Server=binlpeimrerrkpg0uxml-mysql.services.clever-cloud.com;Database=binlpeimrerrkpg0uxml;User=ud6ck4sver5elypr;Password=x28nxOha8ToxfFZLponQ;Port=3306;AllowZeroDateTime=True;ConvertZeroDateTime=True", Microsoft.EntityFrameworkCore.ServerVersion.Parse("8.0.33-mysql"));
+{
+    if (!optionsBuilder.IsConfigured)
+    {
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB") 
+            ?? throw new InvalidOperationException("Connection string is not configured.");
 
+        optionsBuilder.UseMySql(
+            connectionString, 
+            Microsoft.EntityFrameworkCore.ServerVersion.Parse("8.0.33-mysql")
+        );
+    }
+}
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
