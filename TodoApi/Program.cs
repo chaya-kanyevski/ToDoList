@@ -1,100 +1,123 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using TodoApi;
 
+Console.WriteLine("STARTUP: Application is starting...");
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpointsApiExplorer(); 
-builder.Services.AddSwaggerGen();
+Console.WriteLine("STARTUP: WebApplication.CreateBuilder completed");
 
-builder.Services.AddDbContext<ToDoDbContext>(options =>
+try 
 {
+    builder.Services.AddEndpointsApiExplorer(); 
+    builder.Services.AddSwaggerGen();
+
+    Console.WriteLine("STARTUP: Trying to get connection string");
     var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB");
     
+    Console.WriteLine($"STARTUP: Connection String: {connectionString ?? "NULL"}");
+
     if (string.IsNullOrEmpty(connectionString))
     {
+        Console.WriteLine("STARTUP: CONNECTION STRING IS EMPTY OR NULL!");
         throw new InvalidOperationException("Connection string is not configured.");
     }
 
-    Console.WriteLine($"Using Connection String: {connectionString}");
-
-    options.UseMySql(
-        connectionString, 
-        ServerVersion.AutoDetect(connectionString),
-        mySqlOptions => 
-        {
-            mySqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 5,
-                maxRetryDelay: TimeSpan.FromSeconds(30),
-                errorNumbersToAdd: null);
-        }
-    );
-});
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", builder =>
+    builder.Services.AddDbContext<ToDoDbContext>(options =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        Console.WriteLine("STARTUP: Configuring DbContext");
+        options.UseMySql(
+            connectionString, 
+            ServerVersion.AutoDetect(connectionString),
+            mySqlOptions => 
+            {
+                Console.WriteLine("STARTUP: Configuring MySQL options");
+                mySqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(30),
+                    errorNumbersToAdd: null);
+            }
+        );
     });
-});
 
-var app = builder.Build();
-
-app.UseSwagger();
-app.UseSwaggerUI(c => 
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoList API");
-    c.RoutePrefix = string.Empty;
-});
-
-app.UseCors("AllowAll");
-
-app.MapGet("/", () => "TodoList API works...");
-
-app.MapGet("/items", async (ToDoDbContext db) =>
-{
-    try 
+    builder.Services.AddCors(options =>
     {
-        Console.WriteLine("Attempting to fetch items...");
-        var items = await db.Items.ToListAsync();
-        Console.WriteLine($"Found {items.Count} items");
-        return Results.Ok(items);
-    }
-    catch (Exception ex)
+        options.AddPolicy("AllowAll", builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+    });
+
+    Console.WriteLine("STARTUP: Services configuration complete");
+
+    var app = builder.Build();
+
+    app.UseSwagger();
+    app.UseSwaggerUI(c => 
     {
-        Console.WriteLine($"Error fetching items: {ex.Message}");
-        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-        return Results.Problem(ex.Message);
-    }
-});
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoList API");
+        c.RoutePrefix = string.Empty;
+    });
 
-app.MapGet("/items/{id}", async (int id, ToDoDbContext db) =>
-    await db.Items.FindAsync(id) is Item item ? Results.Ok(item) : Results.NotFound());
+    app.UseCors("AllowAll");
 
-app.MapPost("/", async (Item item, ToDoDbContext db) => {
-    db.Add(item);
-    await db.SaveChangesAsync();
-    return Results.Created($"/items/{item.Id}", item);
-});
+    app.MapGet("/", () => "TodoList API works...");
 
-app.MapPut("/items/{id}", async (int id, bool IsComplete, ToDoDbContext db) => {
-    var item = await db.Items.FindAsync(id);
-    if (item is null) return Results.NotFound();
+    app.MapGet("/items", async (ToDoDbContext db) =>
+    {
+        try 
+        {
+            Console.WriteLine("Attempting to fetch items...");
+            var items = await db.Items.ToListAsync();
+            Console.WriteLine($"Found {items.Count} items");
+            return Results.Ok(items);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching items: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            return Results.Problem(ex.Message);
+        }
+    });
 
-    item.IsComplete = IsComplete;
+    app.MapGet("/items/{id}", async (int id, ToDoDbContext db) =>
+        await db.Items.FindAsync(id) is Item item ? Results.Ok(item) : Results.NotFound());
 
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
+    app.MapPost("/", async (Item item, ToDoDbContext db) => {
+        db.Add(item);
+        await db.SaveChangesAsync();
+        return Results.Created($"/items/{item.Id}", item);
+    });
 
-app.MapDelete("/items/{id}", async (int id, ToDoDbContext db) => {
-    var item = await db.Items.FindAsync(id);
-    if(item is null) return Results.NotFound();
+    app.MapPut("/items/{id}", async (int id, bool IsComplete, ToDoDbContext db) => {
+        var item = await db.Items.FindAsync(id);
+        if (item is null) return Results.NotFound();
 
-    db.Items.Remove(item);
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
+        item.IsComplete = IsComplete;
 
-app.Run();
+        await db.SaveChangesAsync();
+        return Results.NoContent();
+    });
+
+    app.MapDelete("/items/{id}", async (int id, ToDoDbContext db) => {
+        var item = await db.Items.FindAsync(id);
+        if(item is null) return Results.NotFound();
+
+        db.Items.Remove(item);
+        await db.SaveChangesAsync();
+        return Results.NoContent();
+    });
+
+    Console.WriteLine("STARTUP: All routes configured");
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"STARTUP: CRITICAL ERROR IN MAIN: {ex.Message}");
+    Console.WriteLine($"STARTUP: Stack Trace: {ex.StackTrace}");
+    throw;
+}
