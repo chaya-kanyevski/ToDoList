@@ -113,6 +113,23 @@ try
 
     Console.WriteLine("STARTUP: All routes configured");
 
+using (var scope = app.Services.CreateScope())
+{
+    try 
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<ToDoDbContext>();
+        Console.WriteLine("Attempting to run database migrations...");
+        dbContext.Database.Migrate();
+        Console.WriteLine("Database migrations completed successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error running database migrations: {ex.Message}");
+        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        throw;
+    }
+} 
+
     app.Run();
 }
 catch (Exception ex)
