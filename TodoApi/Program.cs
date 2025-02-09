@@ -5,28 +5,40 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer(); 
 builder.Services.AddSwaggerGen();
+
 builder.Services.AddDbContext<ToDoDbContext>(options =>
 {
-    var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB") 
-        ?? throw new InvalidOperationException("Connection string is not configured.");
+    var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB");
+    
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        throw new InvalidOperationException("Connection string is not configured.");
+    }
+
+    Console.WriteLine($"Using Connection String: {connectionString}");
 
     options.UseMySql(
-        connectionString,
-        new MySqlServerVersion(new Version(8, 0, 0))
+        connectionString, 
+        ServerVersion.AutoDetect(connectionString),
+        mySqlOptions => 
+        {
+            mySqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorNumbersToAdd: null);
+        }
     );
 });
-
-Console.WriteLine($"Connection String: {Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB")}");
-
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
+    options.AddPolicy("AllowAll", builder =>
     {
         builder.AllowAnyOrigin()
                .AllowAnyMethod()
                .AllowAnyHeader();
     });
 });
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -35,7 +47,8 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoList API");
     c.RoutePrefix = string.Empty;
 });
-app.UseCors();
+
+app.UseCors("AllowAll");
 
 app.MapGet("/", () => "TodoList API works...");
 
