@@ -8,28 +8,25 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ToDoDbContext>(options =>
 {
     var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB") 
-        ?? builder.Configuration.GetConnectionString("ToDoDB");
-    
+        ?? throw new InvalidOperationException("Connection string is not configured.");
+
     options.UseMySql(
         connectionString,
         new MySqlServerVersion(new Version(8, 0, 0))
     );
 });
 
+Console.WriteLine($"Connection String: {Environment.GetEnvironmentVariable("ConnectionStrings__ToDoDB")}");
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddDefaultPolicy(builder =>
     {
-        builder
-            .WithOrigins(
-                "http://localhost:3000", 
-                "https://todolistclient-oo02.onrender.com"
-            )
-            .AllowAnyMethod()
-            .AllowAnyHeader();
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
     });
 });
-
 var app = builder.Build();
 
 app.UseSwagger();
@@ -38,14 +35,25 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoList API");
     c.RoutePrefix = string.Empty;
 });
-app.UseCors("AllowAll");
+app.UseCors();
 
 app.MapGet("/", () => "TodoList API works...");
 
 app.MapGet("/items", async (ToDoDbContext db) =>
 {
-    var items = await db.Items.ToListAsync();
-    return Results.Ok(items);
+    try 
+    {
+        Console.WriteLine("Attempting to fetch items...");
+        var items = await db.Items.ToListAsync();
+        Console.WriteLine($"Found {items.Count} items");
+        return Results.Ok(items);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error fetching items: {ex.Message}");
+        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        return Results.Problem(ex.Message);
+    }
 });
 
 app.MapGet("/items/{id}", async (int id, ToDoDbContext db) =>
